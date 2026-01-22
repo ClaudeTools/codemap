@@ -3,23 +3,21 @@
  */
 
 console.log(`
-┌─────────────────────────────────────────────────────────────┐
-│  codemap installed successfully!                            │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  To set up Claude Code integration, run:                    │
-│                                                             │
-│    codemap init                                             │
-│                                                             │
-│  This will install the skill to .claude/ (commit to git)    │
-│                                                             │
-│  Options:                                                   │
-│    codemap init --global     Install to ~/.claude/ instead  │
-│    codemap init --skill-only Skip CLAUDE.md updates         │
-│                                                             │
-│  Then build your index:                                     │
-│                                                             │
-│    codemap index                                            │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│  codemap installed!                                       │
+│                                                           │
+│  Run this to set up Claude Code integration:              │
+│                                                           │
+│    pnpm codemap init                                      │
+│                                                           │
+│  This will:                                               │
+│    • Install skill to .claude/ (commit to git)            │
+│    • Add instructions to .claude/CLAUDE.md                │
+│    • Build the codebase index                             │
+│                                                           │
+│  Options:                                                 │
+│    --global      Install to ~/.claude/ instead            │
+│    --no-index    Skip building the index                  │
+│                                                           │
+└───────────────────────────────────────────────────────────┘
 `);
