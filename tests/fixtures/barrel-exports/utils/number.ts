@@ -1,0 +1,7 @@
+/**
+ * Number formatting utility
+ */
+
+export function formatNumber(num: number): string {
+  return num.toLocaleString();
+}
