@@ -66,6 +66,42 @@ ${cyan}└───────────────────────�
         console.log(`${check} Installed ${dim}${options.global ? '~/.claude' : '.claude'}/skills/codemap/SKILL.md${reset}`);
       }
 
+      // Always add global detection rule to ~/.claude/CLAUDE.md
+      const globalClaudeMd = join(homedir(), '.claude', 'CLAUDE.md');
+      const globalSnippet = `
+<!-- CODEMAP-GLOBAL:START -->
+## Codemap Detection (Global Rule)
+
+**BEFORE using Grep, Search, Glob, or find commands**, check if the project has a \`.codemap/\` directory.
+If it does, you MUST use codemap instead:
+
+\`\`\`bash
+# Check first: ls .codemap/  (if exists, use codemap below)
+npx @claudetools/codemap where <symbol>   # Instead of Grep
+npx @claudetools/codemap refs <symbol>    # Find all usages
+npx @claudetools/codemap deps <file>      # Show imports
+\`\`\`
+
+This applies to ALL agents and subagents. NEVER use Grep/Search in codemap-enabled projects.
+<!-- CODEMAP-GLOBAL:END -->
+`;
+
+      try {
+        mkdirSync(join(homedir(), '.claude'), { recursive: true });
+        if (existsSync(globalClaudeMd)) {
+          const content = readFileSync(globalClaudeMd, 'utf-8');
+          if (!content.includes('<!-- CODEMAP-GLOBAL:START -->')) {
+            writeFileSync(globalClaudeMd, content + '\n' + globalSnippet);
+            console.log(`${check} Added global detection rule to ${dim}~/.claude/CLAUDE.md${reset}`);
+          }
+        } else {
+          writeFileSync(globalClaudeMd, `# Global Claude Instructions\n${globalSnippet}`);
+          console.log(`${check} Created ${dim}~/.claude/CLAUDE.md${reset} with codemap rule`);
+        }
+      } catch {
+        // Ignore errors with global file
+      }
+
       // Update CLAUDE.md (unless --skill-only or --global)
       if (!options.skillOnly && !options.global) {
         const claudeMdPath = join(targetDir, 'CLAUDE.md');

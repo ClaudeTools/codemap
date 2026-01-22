@@ -26,7 +26,7 @@ program
   .description(
     'Codebase intelligence CLI - fast symbol lookup, dependency tracing, and code navigation'
   )
-  .version('1.5.1');
+  .version('1.6.0');
 
 // Register commands
 program.addCommand(createIndexCommand());
