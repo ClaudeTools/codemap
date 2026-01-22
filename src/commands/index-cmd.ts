@@ -161,6 +161,19 @@ async function startWatchMode(
   const render = (status: 'watching' | 'updating' | 'error', _message?: string) => {
     if (jsonOutput) return;
 
+    // Strip ANSI codes to get visible length
+    const visibleLength = (str: string): number => {
+      return str.replace(/\x1b\[[0-9;]*m/g, '').length;
+    };
+
+    // Pad a line to exact width (64 chars inner width)
+    const BOX_WIDTH = 64;
+    const padLine = (content: string): string => {
+      const visible = visibleLength(content);
+      const padding = Math.max(0, BOX_WIDTH - visible);
+      return `${cyan}│${reset}${content}${' '.repeat(padding)}${cyan}│${reset}`;
+    };
+
     // Clear screen and move cursor to top
     process.stdout.write('\x1b[2J\x1b[H');
 
@@ -172,44 +185,49 @@ async function startWatchMode(
                        status === 'updating' ? `${brightYellow}Updating${reset}` :
                        `${'\x1b[91m'}Error${reset}`;
 
-    console.log(`
-${cyan}┌────────────────────────────────────────────────────────────────┐${reset}
-${cyan}│${reset}  ${brightMagenta}${bold}codemap${reset} ${dim}watch mode${reset}                                          ${cyan}│${reset}
-${cyan}├────────────────────────────────────────────────────────────────┤${reset}
-${cyan}│${reset}                                                                ${cyan}│${reset}
-${cyan}│${reset}  ${bold}Status:${reset}  ${statusIcon} ${statusText}                                          ${cyan}│${reset}
-${cyan}│${reset}  ${bold}Uptime:${reset}  ${dim}${uptime}${reset}                                             ${cyan}│${reset}
-${cyan}│${reset}                                                                ${cyan}│${reset}
-${cyan}├────────────────────────────────────────────────────────────────┤${reset}
-${cyan}│${reset}  ${bold}Index Stats${reset}                                                  ${cyan}│${reset}
-${cyan}│${reset}                                                                ${cyan}│${reset}
-${cyan}│${reset}    ${gray}Files:${reset}   ${brightCyan}${stats.filesIndexed}${reset}                                            ${cyan}│${reset}
-${cyan}│${reset}    ${gray}Symbols:${reset} ${brightCyan}${stats.symbolsExtracted}${reset}                                            ${cyan}│${reset}
-${cyan}│${reset}    ${gray}Updates:${reset} ${brightCyan}${stats.totalUpdates}${reset} ${dim}(${stats.totalFilesChanged} files changed)${reset}                  ${cyan}│${reset}
-${cyan}│${reset}                                                                ${cyan}│${reset}
-${cyan}├────────────────────────────────────────────────────────────────┤${reset}
-${cyan}│${reset}  ${bold}Activity${reset}                                                     ${cyan}│${reset}
-${cyan}│${reset}                                                                ${cyan}│${reset}`);
+    const hr = `${cyan}├${'─'.repeat(BOX_WIDTH)}┤${reset}`;
+    const top = `${cyan}┌${'─'.repeat(BOX_WIDTH)}┐${reset}`;
+    const bottom = `${cyan}└${'─'.repeat(BOX_WIDTH)}┘${reset}`;
+    const empty = padLine('');
+
+    console.log('');
+    console.log(top);
+    console.log(padLine(`  ${brightMagenta}${bold}codemap${reset} ${dim}watch mode${reset}`));
+    console.log(hr);
+    console.log(empty);
+    console.log(padLine(`  ${bold}Status:${reset}  ${statusIcon} ${statusText}`));
+    console.log(padLine(`  ${bold}Uptime:${reset}  ${dim}${uptime}${reset}`));
+    console.log(empty);
+    console.log(hr);
+    console.log(padLine(`  ${bold}Index Stats${reset}`));
+    console.log(empty);
+    console.log(padLine(`    ${gray}Files:${reset}   ${brightCyan}${stats.filesIndexed}${reset}`));
+    console.log(padLine(`    ${gray}Symbols:${reset} ${brightCyan}${stats.symbolsExtracted}${reset}`));
+    console.log(padLine(`    ${gray}Updates:${reset} ${brightCyan}${stats.totalUpdates}${reset} ${dim}(${stats.totalFilesChanged} files changed)${reset}`));
+    console.log(empty);
+    console.log(hr);
+    console.log(padLine(`  ${bold}Activity${reset}`));
+    console.log(empty);
 
     // Show activity log
     if (activityLog.length === 0) {
-      console.log(`${cyan}│${reset}    ${dim}Waiting for file changes...${reset}                              ${cyan}│${reset}`);
+      console.log(padLine(`    ${dim}Waiting for file changes...${reset}`));
     } else {
       for (const entry of activityLog) {
-        console.log(`${cyan}│${reset}    ${entry.padEnd(58)}${cyan}│${reset}`);
+        console.log(padLine(`    ${entry}`));
       }
     }
 
     // Pad remaining lines
     const remainingLines = MAX_LOG_ENTRIES - activityLog.length;
     for (let i = 0; i < remainingLines && activityLog.length > 0; i++) {
-      console.log(`${cyan}│${reset}                                                                ${cyan}│${reset}`);
+      console.log(empty);
     }
 
-    console.log(`${cyan}│${reset}                                                                ${cyan}│${reset}
-${cyan}└────────────────────────────────────────────────────────────────┘${reset}
-  ${dim}Press ${bold}Ctrl+C${reset}${dim} to stop${reset}
-`);
+    console.log(empty);
+    console.log(bottom);
+    console.log(`  ${dim}Press ${bold}Ctrl+C${reset}${dim} to stop${reset}`);
+    console.log('');
   };
 
   // Initial render
