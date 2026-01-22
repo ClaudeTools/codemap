@@ -1,39 +1,25 @@
 /**
- * Postinstall script to install Claude Code skill
+ * Postinstall script - print setup instructions
  */
 
-import { mkdirSync, copyFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { homedir } from 'os';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const skillDir = join(homedir(), '.claude', 'skills', 'codemap');
-const skillSource = join(__dirname, '..', 'skills', 'SKILL.md');
-
-try {
-  // Check if source skill file exists
-  if (!existsSync(skillSource)) {
-    console.log('Skill file not found, skipping Claude Code integration.');
-    process.exit(0);
-  }
-
-  // Create skill directory
-  mkdirSync(skillDir, { recursive: true });
-
-  // Copy skill file
-  copyFileSync(skillSource, join(skillDir, 'SKILL.md'));
-  console.log('Claude Code skill installed to ~/.claude/skills/codemap/');
-} catch (e) {
-  const error = e as Error;
-  console.log(`
-To enable Claude Code integration, manually copy the skill:
-
-  mkdir -p ~/.claude/skills/codemap
-  cp ${skillSource} ~/.claude/skills/codemap/SKILL.md
-
-Error: ${error.message}
-  `);
-}
+console.log(`
+┌─────────────────────────────────────────────────────────────┐
+│  codemap installed successfully!                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  To set up Claude Code integration, run:                    │
+│                                                             │
+│    codemap init                                             │
+│                                                             │
+│  This will install the skill to .claude/ (commit to git)    │
+│                                                             │
+│  Options:                                                   │
+│    codemap init --global     Install to ~/.claude/ instead  │
+│    codemap init --skill-only Skip CLAUDE.md updates         │
+│                                                             │
+│  Then build your index:                                     │
+│                                                             │
+│    codemap index                                            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+`);

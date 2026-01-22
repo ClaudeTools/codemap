@@ -10,3 +10,4 @@ export { createExportsCommand } from './exports.js';
 export { createTreeCommand } from './tree.js';
 export { createSummaryCommand } from './summary.js';
 export { createStatusCommand } from './status.js';
+export { createInitCommand } from './init.js';
