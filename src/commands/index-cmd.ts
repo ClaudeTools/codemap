@@ -123,7 +123,6 @@ interface WatchStats {
   filesIndexed: number;
   symbolsExtracted: number;
   totalUpdates: number;
-  totalFilesChanged: number;
   startTime: Date;
   lastUpdate: Date | null;
 }
@@ -141,7 +140,6 @@ async function startWatchMode(
     filesIndexed: initialResult.filesIndexed,
     symbolsExtracted: initialResult.symbolsExtracted,
     totalUpdates: 0,
-    totalFilesChanged: 0,
     startTime: new Date(),
     lastUpdate: null,
   };
@@ -203,7 +201,7 @@ async function startWatchMode(
     console.log(empty);
     console.log(padLine(`    ${gray}Files:${reset}   ${brightCyan}${stats.filesIndexed}${reset}`));
     console.log(padLine(`    ${gray}Symbols:${reset} ${brightCyan}${stats.symbolsExtracted}${reset}`));
-    console.log(padLine(`    ${gray}Updates:${reset} ${brightCyan}${stats.totalUpdates}${reset} ${dim}(${stats.totalFilesChanged} files changed)${reset}`));
+    console.log(padLine(`    ${gray}Updates:${reset} ${brightCyan}${stats.totalUpdates}${reset}`));
     console.log(empty);
     console.log(hr);
     console.log(padLine(`  ${bold}Activity${reset}`));
@@ -276,7 +274,6 @@ async function startWatchMode(
       const result = await updateIndex(projectRoot);
 
       stats.totalUpdates++;
-      stats.totalFilesChanged += changedFiles.length;
       stats.lastUpdate = new Date();
 
       if (result.filesIndexed > 0) {
@@ -366,7 +363,6 @@ ${cyan}│${reset}  ${bold}Session Summary${reset}                              
 ${cyan}│${reset}                                                                ${cyan}│${reset}
 ${cyan}│${reset}    ${gray}Uptime:${reset}        ${brightCyan}${uptime}${reset}                                      ${cyan}│${reset}
 ${cyan}│${reset}    ${gray}Total updates:${reset} ${brightCyan}${stats.totalUpdates}${reset}                                           ${cyan}│${reset}
-${cyan}│${reset}    ${gray}Files changed:${reset} ${brightCyan}${stats.totalFilesChanged}${reset}                                           ${cyan}│${reset}
 ${cyan}│${reset}    ${gray}Final index:${reset}   ${brightCyan}${stats.filesIndexed}${reset} files, ${brightCyan}${stats.symbolsExtracted}${reset} symbols            ${cyan}│${reset}
 ${cyan}│${reset}                                                                ${cyan}│${reset}
 ${cyan}└────────────────────────────────────────────────────────────────┘${reset}
