@@ -28,6 +28,9 @@ const red = '\x1b[91m';
 const check = `${brightGreen}✓${reset}`;
 const cross = `${red}✗${reset}`;
 
+// Small delay for visual feedback
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export function createInitCommand(): Command {
   const cmd = new Command('init')
     .description('Set up codemap for this project (skill, CLAUDE.md, and index)')
@@ -44,11 +47,27 @@ export function createInitCommand(): Command {
         process.exit(1);
       }
 
+      const brightMagenta = '\x1b[95m';
+      const bgMagenta = '\x1b[45m';
+      const white = '\x1b[97m';
+
+      // Calculate total steps
+      const totalSteps = options.skillOnly ? 1 : (options.global ? 2 : 4);
+      let currentStep = 0;
+
+      const startStep = (label: string) => {
+        currentStep++;
+        process.stdout.write(`\n${cyan}[${currentStep}/${totalSteps}]${reset} ${label}...`);
+      };
+
+      const endStep = (detail?: string) => {
+        process.stdout.write(` ${check}${detail ? ` ${dim}${detail}${reset}` : ''}\n`);
+      };
+
       console.log(`
 ${cyan}┌──────────────────────────────────────────────────────────────┐${reset}
-${cyan}│${reset}  ${brightGreen}${bold}codemap${reset} ${dim}— Setting up Claude Code integration${reset}              ${cyan}│${reset}
-${cyan}└──────────────────────────────────────────────────────────────┘${reset}
-`);
+${cyan}│${reset}  ${brightMagenta}${bold}codemap${reset} ${dim}— Setting up Claude Code integration${reset}              ${cyan}│${reset}
+${cyan}└──────────────────────────────────────────────────────────────┘${reset}`);
 
       const targetDir = options.global
         ? join(homedir(), '.claude')
@@ -57,14 +76,20 @@ ${cyan}└───────────────────────�
       const skillDir = join(targetDir, 'skills', 'codemap');
       const skillTarget = join(skillDir, 'SKILL.md');
 
-      // Install/update skill (always overwrite with latest)
+      // Step 1: Install skill
+      startStep('Installing skill');
+      await delay(150);
       mkdirSync(skillDir, { recursive: true });
       copyFileSync(skillSource, skillTarget);
-      console.log(`${check} Installed ${dim}${options.global ? '~/.claude' : '.claude'}/skills/codemap/SKILL.md${reset}`);
+      endStep(options.global ? '~/.claude/skills/codemap/' : '.claude/skills/codemap/');
 
-      // Always add global detection rule to ~/.claude/CLAUDE.md
-      const globalClaudeMd = join(homedir(), '.claude', 'CLAUDE.md');
-      const globalSnippet = `
+      // Step 2: Global detection rule
+      if (!options.skillOnly) {
+        startStep('Configuring global rules');
+        await delay(150);
+
+        const globalClaudeMd = join(homedir(), '.claude', 'CLAUDE.md');
+        const globalSnippet = `
 <!-- CODEMAP-GLOBAL:START -->
 ## Codemap Detection (Global Rule)
 
@@ -82,32 +107,33 @@ This applies to ALL agents and subagents. NEVER use Grep/Search in codemap-enabl
 <!-- CODEMAP-GLOBAL:END -->
 `;
 
-      try {
-        mkdirSync(join(homedir(), '.claude'), { recursive: true });
-        if (existsSync(globalClaudeMd)) {
-          let content = readFileSync(globalClaudeMd, 'utf-8');
-          if (content.includes('<!-- CODEMAP-GLOBAL:START -->')) {
-            // Replace existing content with latest
-            content = content.replace(
-              /\n?<!-- CODEMAP-GLOBAL:START -->[\s\S]*?<!-- CODEMAP-GLOBAL:END -->\n?/,
-              '\n' + globalSnippet
-            );
-            writeFileSync(globalClaudeMd, content);
-            console.log(`${check} Updated global detection rule in ${dim}~/.claude/CLAUDE.md${reset}`);
+        try {
+          mkdirSync(join(homedir(), '.claude'), { recursive: true });
+          if (existsSync(globalClaudeMd)) {
+            let content = readFileSync(globalClaudeMd, 'utf-8');
+            if (content.includes('<!-- CODEMAP-GLOBAL:START -->')) {
+              content = content.replace(
+                /\n?<!-- CODEMAP-GLOBAL:START -->[\s\S]*?<!-- CODEMAP-GLOBAL:END -->\n?/,
+                '\n' + globalSnippet
+              );
+              writeFileSync(globalClaudeMd, content);
+            } else {
+              writeFileSync(globalClaudeMd, content + '\n' + globalSnippet);
+            }
           } else {
-            writeFileSync(globalClaudeMd, content + '\n' + globalSnippet);
-            console.log(`${check} Added global detection rule to ${dim}~/.claude/CLAUDE.md${reset}`);
+            writeFileSync(globalClaudeMd, `# Global Claude Instructions\n${globalSnippet}`);
           }
-        } else {
-          writeFileSync(globalClaudeMd, `# Global Claude Instructions\n${globalSnippet}`);
-          console.log(`${check} Created ${dim}~/.claude/CLAUDE.md${reset} with codemap rule`);
+          endStep('~/.claude/CLAUDE.md');
+        } catch {
+          endStep('skipped');
         }
-      } catch {
-        // Ignore errors with global file
       }
 
-      // Update CLAUDE.md (unless --skill-only or --global)
+      // Step 3: Project CLAUDE.md
       if (!options.skillOnly && !options.global) {
+        startStep('Configuring project');
+        await delay(150);
+
         const claudeMdPath = join(targetDir, 'CLAUDE.md');
         const codemapSnippet = `
 <!-- CODEMAP:START -->
@@ -137,40 +163,36 @@ Run \`npx @claudetools/codemap index\` to rebuild after major changes.
         if (existsSync(claudeMdPath)) {
           let content = readFileSync(claudeMdPath, 'utf-8');
           if (content.includes('<!-- CODEMAP:START -->')) {
-            // Always replace with latest content
             content = content.replace(
               /\n?<!-- CODEMAP:START -->[\s\S]*?<!-- CODEMAP:END -->\n?/,
               '\n' + codemapSnippet
             );
             writeFileSync(claudeMdPath, content);
-            console.log(`${check} Updated ${dim}.claude/CLAUDE.md${reset}`);
           } else {
             writeFileSync(claudeMdPath, content + '\n' + codemapSnippet);
-            console.log(`${check} Added codemap to ${dim}.claude/CLAUDE.md${reset}`);
           }
         } else {
           mkdirSync(targetDir, { recursive: true });
           writeFileSync(claudeMdPath, `# Project Instructions\n${codemapSnippet}`);
-          console.log(`${check} Created ${dim}.claude/CLAUDE.md${reset}`);
         }
+        endStep('.claude/CLAUDE.md');
 
-        // Update .gitignore
+        // Update .gitignore (silently)
         const gitignorePath = join(projectRoot, '.gitignore');
         try {
           let content = existsSync(gitignorePath) ? readFileSync(gitignorePath, 'utf-8') : '';
           if (!content.includes('.codemap/')) {
             const addition = content.endsWith('\n') || content === '' ? '.codemap/\n' : '\n.codemap/\n';
             writeFileSync(gitignorePath, content + addition);
-            console.log(`${check} Updated ${dim}.gitignore${reset}`);
           }
         } catch {
           // Ignore
         }
       }
 
-      // Build index (unless --no-index or --skill-only or --global)
+      // Step 4: Build index
       if (options.index !== false && !options.skillOnly && !options.global) {
-        console.log(`\n${brightCyan}Building index...${reset}`);
+        startStep('Building index');
 
         try {
           const result = await buildIndex(projectRoot, {
@@ -178,38 +200,32 @@ Run \`npx @claudetools/codemap index\` to rebuild after major changes.
             onProgress: (progress) => {
               if (progress.phase === 'parsing' && progress.currentFile) {
                 process.stdout.write(
-                  `\r  ${gray}Processing: ${progress.current}/${progress.total} files${reset}`
+                  `\r${cyan}[${currentStep}/${totalSteps}]${reset} Building index... ${gray}${progress.current}/${progress.total}${reset}`
                 );
               }
             },
           });
 
-          process.stdout.write('\r' + ' '.repeat(50) + '\r');
-          console.log(`${check} Indexed ${brightGreen}${result.filesIndexed}${reset} files, ${brightGreen}${result.symbolsExtracted}${reset} symbols ${dim}(${formatDuration(result.duration)})${reset}`);
+          process.stdout.write(`\r${cyan}[${currentStep}/${totalSteps}]${reset} Building index... ${check} ${brightGreen}${result.filesIndexed}${reset} files, ${brightGreen}${result.symbolsExtracted}${reset} symbols ${dim}(${formatDuration(result.duration)})${reset}\n`);
 
           if (result.errors.length > 0) {
-            console.log(`  ${brightYellow}⚠${reset} ${result.errors.length} files had warnings`);
+            console.log(`    ${brightYellow}⚠${reset}  ${result.errors.length} files had warnings`);
           }
         } catch (e) {
           const error = e as Error;
-          console.error(`${cross} Index failed: ${error.message}`);
+          process.stdout.write(` ${cross}\n`);
+          console.error(`    Error: ${error.message}`);
         }
       }
 
-      const brightMagenta = '\x1b[95m';
-      const bgMagenta = '\x1b[45m';
-      const white = '\x1b[97m';
-
+      // Final summary
       console.log(`
 ${cyan}───────────────────────────────────────────────────────────────${reset}
-${brightGreen}${bold}Setup complete!${reset} ${options.global ? '' : `${dim}Commit .claude/ to share with your team.${reset}`}
+${brightGreen}${bold}✓ Setup complete!${reset} ${options.global ? '' : `${dim}Commit .claude/ to share with your team.${reset}`}
 
 ${bgMagenta}${white}${bold} RECOMMENDED ${reset} ${brightMagenta}${bold}Keep the index updated with watch mode:${reset}
 
   ${brightMagenta}npx @claudetools/codemap index --watch${reset}
-
-  ${dim}This runs in the background and auto-updates when files change.${reset}
-  ${dim}Run it in a separate terminal while developing.${reset}
 
 ${cyan}───────────────────────────────────────────────────────────────${reset}
 
