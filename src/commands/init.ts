@@ -159,15 +159,28 @@ Run \`npx @claudetools/codemap index\` to rebuild after major changes.
         }
       }
 
+      const brightMagenta = '\x1b[95m';
+      const bgMagenta = '\x1b[45m';
+      const white = '\x1b[97m';
+
       console.log(`
 ${cyan}───────────────────────────────────────────────────────────────${reset}
 ${brightGreen}${bold}Setup complete!${reset} ${options.global ? '' : `${dim}Commit .claude/ to share with your team.${reset}`}
 
-${bold}Usage:${reset}
+${bgMagenta}${white}${bold} RECOMMENDED ${reset} ${brightMagenta}${bold}Keep the index updated with watch mode:${reset}
+
+  ${brightMagenta}npx @claudetools/codemap index --watch${reset}
+
+  ${dim}This runs in the background and auto-updates when files change.${reset}
+  ${dim}Run it in a separate terminal while developing.${reset}
+
+${cyan}───────────────────────────────────────────────────────────────${reset}
+
+${bold}Commands:${reset}
   ${brightCyan}npx @claudetools/codemap where${reset} ${dim}<symbol>${reset}   ${gray}# Find definitions${reset}
   ${brightCyan}npx @claudetools/codemap refs${reset} ${dim}<symbol>${reset}    ${gray}# Find all usages${reset}
   ${brightCyan}npx @claudetools/codemap deps${reset} ${dim}<file>${reset}      ${gray}# Show dependencies${reset}
-  ${brightCyan}npx @claudetools/codemap --help${reset}            ${gray}# See all commands${reset}
+  ${brightCyan}npx @claudetools/codemap --help${reset}            ${gray}# All commands${reset}
 `);
     });
 
