@@ -9,10 +9,24 @@ import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import { findProjectRoot } from '../utils/paths.js';
 import { buildIndex } from '../indexer/indexer.js';
-import { formatDuration, pluralize } from '../utils/output.js';
+import { formatDuration } from '../utils/output.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Force colors
+const reset = '\x1b[0m';
+const bold = '\x1b[1m';
+const dim = '\x1b[2m';
+const cyan = '\x1b[36m';
+const brightGreen = '\x1b[92m';
+const brightCyan = '\x1b[96m';
+const brightYellow = '\x1b[93m';
+const gray = '\x1b[90m';
+const red = '\x1b[91m';
+
+const check = `${brightGreen}✓${reset}`;
+const cross = `${red}✗${reset}`;
 
 export function createInitCommand(): Command {
   const cmd = new Command('init')
@@ -26,11 +40,15 @@ export function createInitCommand(): Command {
       const projectRoot = findProjectRoot();
 
       if (!existsSync(skillSource)) {
-        console.error('Error: Skill file not found. Try reinstalling codemap.');
+        console.error(`${cross} Skill file not found. Try reinstalling codemap.`);
         process.exit(1);
       }
 
-      console.log('\nSetting up codemap...\n');
+      console.log(`
+${cyan}┌──────────────────────────────────────────────────────────────┐${reset}
+${cyan}│${reset}  ${brightGreen}${bold}codemap${reset} ${dim}— Setting up Claude Code integration${reset}              ${cyan}│${reset}
+${cyan}└──────────────────────────────────────────────────────────────┘${reset}
+`);
 
       const targetDir = options.global
         ? join(homedir(), '.claude')
@@ -41,11 +59,11 @@ export function createInitCommand(): Command {
 
       // Install skill
       if (existsSync(skillTarget) && !options.force) {
-        console.log('✓ Skill already installed');
+        console.log(`${check} Skill already installed`);
       } else {
         mkdirSync(skillDir, { recursive: true });
         copyFileSync(skillSource, skillTarget);
-        console.log(`✓ Installed: ${options.global ? '~/.claude' : '.claude'}/skills/codemap/SKILL.md`);
+        console.log(`${check} Installed ${dim}${options.global ? '~/.claude' : '.claude'}/skills/codemap/SKILL.md${reset}`);
       }
 
       // Update CLAUDE.md (unless --skill-only or --global)
@@ -58,15 +76,15 @@ export function createInitCommand(): Command {
 This project uses codemap for codebase intelligence. Use these commands BEFORE grep/find:
 
 \`\`\`bash
-codemap where <symbol>   # Find definitions
-codemap refs <symbol>    # Find usages
-codemap deps <file>      # Show imports
-codemap exports <file>   # Show exports
-codemap tree             # Project structure
-codemap summary          # Project overview
+npx @claudetools/codemap where <symbol>   # Find definitions
+npx @claudetools/codemap refs <symbol>    # Find usages
+npx @claudetools/codemap deps <file>      # Show imports
+npx @claudetools/codemap exports <file>   # Show exports
+npx @claudetools/codemap tree             # Project structure
+npx @claudetools/codemap summary          # Project overview
 \`\`\`
 
-Run \`codemap index\` to rebuild after major changes.
+Run \`npx @claudetools/codemap index\` to rebuild after major changes.
 <!-- CODEMAP:END -->
 `;
 
@@ -79,18 +97,18 @@ Run \`codemap index\` to rebuild after major changes.
                 codemapSnippet.trim()
               );
               writeFileSync(claudeMdPath, updated);
-              console.log('✓ Updated: .claude/CLAUDE.md');
+              console.log(`${check} Updated ${dim}.claude/CLAUDE.md${reset}`);
             } else {
-              console.log('✓ CLAUDE.md already configured');
+              console.log(`${check} CLAUDE.md already configured`);
             }
           } else {
             writeFileSync(claudeMdPath, content + '\n' + codemapSnippet);
-            console.log('✓ Updated: .claude/CLAUDE.md');
+            console.log(`${check} Updated ${dim}.claude/CLAUDE.md${reset}`);
           }
         } else {
           mkdirSync(targetDir, { recursive: true });
           writeFileSync(claudeMdPath, `# Project Instructions\n${codemapSnippet}`);
-          console.log('✓ Created: .claude/CLAUDE.md');
+          console.log(`${check} Created ${dim}.claude/CLAUDE.md${reset}`);
         }
 
         // Update .gitignore
@@ -100,7 +118,7 @@ Run \`codemap index\` to rebuild after major changes.
           if (!content.includes('.codemap/')) {
             const addition = content.endsWith('\n') || content === '' ? '.codemap/\n' : '\n.codemap/\n';
             writeFileSync(gitignorePath, content + addition);
-            console.log('✓ Updated: .gitignore');
+            console.log(`${check} Updated ${dim}.gitignore${reset}`);
           }
         } catch {
           // Ignore
@@ -109,7 +127,7 @@ Run \`codemap index\` to rebuild after major changes.
 
       // Build index (unless --no-index or --skill-only or --global)
       if (options.index !== false && !options.skillOnly && !options.global) {
-        console.log('\nBuilding index...');
+        console.log(`\n${brightCyan}Building index...${reset}`);
 
         try {
           const result = await buildIndex(projectRoot, {
@@ -117,32 +135,33 @@ Run \`codemap index\` to rebuild after major changes.
             onProgress: (progress) => {
               if (progress.phase === 'parsing' && progress.currentFile) {
                 process.stdout.write(
-                  `\r  Processing: ${progress.current}/${progress.total} files`
+                  `\r  ${gray}Processing: ${progress.current}/${progress.total} files${reset}`
                 );
               }
             },
           });
 
           process.stdout.write('\r' + ' '.repeat(50) + '\r');
-          console.log(`✓ Indexed: ${pluralize(result.filesIndexed, 'file')}, ${result.symbolsExtracted} symbols (${formatDuration(result.duration)})`);
+          console.log(`${check} Indexed ${brightGreen}${result.filesIndexed}${reset} files, ${brightGreen}${result.symbolsExtracted}${reset} symbols ${dim}(${formatDuration(result.duration)})${reset}`);
 
           if (result.errors.length > 0) {
-            console.log(`  Warnings: ${result.errors.length} files had issues`);
+            console.log(`  ${brightYellow}⚠${reset} ${result.errors.length} files had warnings`);
           }
         } catch (e) {
           const error = e as Error;
-          console.error(`✗ Index failed: ${error.message}`);
+          console.error(`${cross} Index failed: ${error.message}`);
         }
       }
 
       console.log(`
-Setup complete! ${options.global ? '' : 'Commit .claude/ to share with your team.'}
+${cyan}───────────────────────────────────────────────────────────────${reset}
+${brightGreen}${bold}Setup complete!${reset} ${options.global ? '' : `${dim}Commit .claude/ to share with your team.${reset}`}
 
-Usage:
-  npx codemap where <symbol>   # Find where something is defined
-  npx codemap refs <symbol>    # Find all usages
-  npx codemap deps <file>      # Show file dependencies
-  npx codemap --help           # See all commands
+${bold}Usage:${reset}
+  ${brightCyan}npx @claudetools/codemap where${reset} ${dim}<symbol>${reset}   ${gray}# Find definitions${reset}
+  ${brightCyan}npx @claudetools/codemap refs${reset} ${dim}<symbol>${reset}    ${gray}# Find all usages${reset}
+  ${brightCyan}npx @claudetools/codemap deps${reset} ${dim}<file>${reset}      ${gray}# Show dependencies${reset}
+  ${brightCyan}npx @claudetools/codemap --help${reset}            ${gray}# See all commands${reset}
 `);
     });
 

@@ -6,13 +6,13 @@
 This project uses codemap for codebase intelligence. Use these commands BEFORE grep/find:
 
 ```bash
-codemap where <symbol>   # Find definitions
-codemap refs <symbol>    # Find usages
-codemap deps <file>      # Show imports
-codemap exports <file>   # Show exports
-codemap tree             # Project structure
-codemap summary          # Project overview
+npx @claudetools/codemap where <symbol>   # Find definitions
+npx @claudetools/codemap refs <symbol>    # Find usages
+npx @claudetools/codemap deps <file>      # Show imports
+npx @claudetools/codemap exports <file>   # Show exports
+npx @claudetools/codemap tree             # Project structure
+npx @claudetools/codemap summary          # Project overview
 ```
 
-Run `codemap index` to rebuild after major changes.
+Run `npx @claudetools/codemap index` to rebuild after major changes.
 <!-- CODEMAP:END -->
