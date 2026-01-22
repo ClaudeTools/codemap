@@ -17,6 +17,7 @@ import {
   createSummaryCommand,
   createStatusCommand,
   createInitCommand,
+  createUninstallCommand,
 } from './commands/index.js';
 
 const program = new Command();
@@ -26,7 +27,7 @@ program
   .description(
     'Codebase intelligence CLI - fast symbol lookup, dependency tracing, and code navigation'
   )
-  .version('1.6.0');
+  .version('1.7.0');
 
 // Register commands
 program.addCommand(createIndexCommand());
@@ -38,6 +39,7 @@ program.addCommand(createTreeCommand());
 program.addCommand(createSummaryCommand());
 program.addCommand(createStatusCommand());
 program.addCommand(createInitCommand());
+program.addCommand(createUninstallCommand());
 
 // Parse arguments
 program.parse();
