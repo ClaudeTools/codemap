@@ -139,10 +139,10 @@ Run \`codemap index\` to rebuild after major changes.
 Setup complete! ${options.global ? '' : 'Commit .claude/ to share with your team.'}
 
 Usage:
-  codemap where <symbol>   # Find where something is defined
-  codemap refs <symbol>    # Find all usages
-  codemap deps <file>      # Show file dependencies
-  codemap --help           # See all commands
+  npx codemap where <symbol>   # Find where something is defined
+  npx codemap refs <symbol>    # Find all usages
+  npx codemap deps <file>      # Show file dependencies
+  npx codemap --help           # See all commands
 `);
     });
 

@@ -26,36 +26,44 @@ codemap where authenticate
 ## Installation
 
 ```bash
-npm install -g @claudetools/codemap
+# Add to your project
+pnpm add -D @claudetools/codemap
+
+# Set up Claude Code integration + build index
+npx codemap init
+```
+
+Or run without installing:
+```bash
+npx @claudetools/codemap init
 ```
 
 ## Quick Start
 
 ```bash
-# Index your project
-cd your-project
-codemap index
-
 # Find where a symbol is defined
-codemap where UserService
+npx codemap where UserService
 
 # Find all references to a symbol
-codemap refs authenticate
+npx codemap refs authenticate
 
 # Show what a file imports
-codemap deps src/routes/auth.ts
+npx codemap deps src/routes/auth.ts
 
 # Show what a file exports
-codemap exports src/lib/auth.ts
+npx codemap exports src/lib/auth.ts
 
 # Show project structure
-codemap tree
+npx codemap tree
 
 # Get project overview
-codemap summary
+npx codemap summary
 
 # Check index status
-codemap status
+npx codemap status
+
+# Rebuild index after major changes
+npx codemap index
 ```
 
 ## Commands

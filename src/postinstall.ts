@@ -8,7 +8,7 @@ console.log(`
 │                                                           │
 │  Run this to set up Claude Code integration:              │
 │                                                           │
-│    pnpm codemap init                                      │
+│    npx codemap init                                       │
 │                                                           │
 │  This will:                                               │
 │    • Install skill to .claude/ (commit to git)            │
