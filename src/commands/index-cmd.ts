@@ -8,6 +8,20 @@ import { findProjectRoot, getLanguageFromExtension } from '../utils/paths.js';
 import { buildIndex, updateIndex } from '../indexer/indexer.js';
 import { formatDuration, pluralize } from '../utils/output.js';
 
+// Colors
+const reset = '\x1b[0m';
+const bold = '\x1b[1m';
+const dim = '\x1b[2m';
+const cyan = '\x1b[36m';
+const yellow = '\x1b[33m';
+const gray = '\x1b[90m';
+const brightGreen = '\x1b[92m';
+const brightCyan = '\x1b[96m';
+const brightYellow = '\x1b[93m';
+const brightMagenta = '\x1b[95m';
+
+const check = `${brightGreen}✓${reset}`;
+
 export function createIndexCommand(): Command {
   const cmd = new Command('index')
     .description('Build or rebuild the codebase index')
@@ -85,15 +99,9 @@ export function createIndexCommand(): Command {
 
           console.log('\nIndex saved to .codemap/index.db');
         } else {
-          // Watch mode - show initial stats
+          // Watch mode - hand off to TUI
           process.stdout.write('\r' + ' '.repeat(80) + '\r');
-          console.log(`  Indexed: ${pluralize(result.filesIndexed, 'file')} (${result.symbolsExtracted} symbols)`);
-          console.log(`\nWatching for changes... (Ctrl+C to stop)\n`);
-        }
-
-        // Start watch mode if requested
-        if (options.watch) {
-          await startWatchMode(projectRoot, options.json);
+          await startWatchMode(projectRoot, options.json, result);
         }
       } catch (e) {
         const error = e as Error;
@@ -111,10 +119,102 @@ export function createIndexCommand(): Command {
   return cmd;
 }
 
+interface WatchStats {
+  filesIndexed: number;
+  symbolsExtracted: number;
+  totalUpdates: number;
+  totalFilesChanged: number;
+  startTime: Date;
+  lastUpdate: Date | null;
+}
+
 /**
- * Start watch mode - monitor for file changes and re-index
+ * Start watch mode with nice TUI
  */
-async function startWatchMode(projectRoot: string, jsonOutput: boolean): Promise<void> {
+async function startWatchMode(
+  projectRoot: string,
+  jsonOutput: boolean,
+  initialResult: { filesIndexed: number; symbolsExtracted: number }
+): Promise<void> {
+  // Stats tracking
+  const stats: WatchStats = {
+    filesIndexed: initialResult.filesIndexed,
+    symbolsExtracted: initialResult.symbolsExtracted,
+    totalUpdates: 0,
+    totalFilesChanged: 0,
+    startTime: new Date(),
+    lastUpdate: null,
+  };
+
+  // Activity log (keep last 8 entries)
+  const activityLog: string[] = [];
+  const MAX_LOG_ENTRIES = 8;
+
+  const addLogEntry = (entry: string) => {
+    activityLog.push(entry);
+    if (activityLog.length > MAX_LOG_ENTRIES) {
+      activityLog.shift();
+    }
+  };
+
+  // Render the TUI
+  const render = (status: 'watching' | 'updating' | 'error', _message?: string) => {
+    if (jsonOutput) return;
+
+    // Clear screen and move cursor to top
+    process.stdout.write('\x1b[2J\x1b[H');
+
+    const uptime = formatUptime(stats.startTime);
+    const statusIcon = status === 'watching' ? `${brightGreen}●${reset}` :
+                       status === 'updating' ? `${brightYellow}●${reset}` :
+                       `${'\x1b[91m'}●${reset}`;
+    const statusText = status === 'watching' ? `${brightGreen}Watching${reset}` :
+                       status === 'updating' ? `${brightYellow}Updating${reset}` :
+                       `${'\x1b[91m'}Error${reset}`;
+
+    console.log(`
+${cyan}┌────────────────────────────────────────────────────────────────┐${reset}
+${cyan}│${reset}  ${brightMagenta}${bold}codemap${reset} ${dim}watch mode${reset}                                          ${cyan}│${reset}
+${cyan}├────────────────────────────────────────────────────────────────┤${reset}
+${cyan}│${reset}                                                                ${cyan}│${reset}
+${cyan}│${reset}  ${bold}Status:${reset}  ${statusIcon} ${statusText}                                          ${cyan}│${reset}
+${cyan}│${reset}  ${bold}Uptime:${reset}  ${dim}${uptime}${reset}                                             ${cyan}│${reset}
+${cyan}│${reset}                                                                ${cyan}│${reset}
+${cyan}├────────────────────────────────────────────────────────────────┤${reset}
+${cyan}│${reset}  ${bold}Index Stats${reset}                                                  ${cyan}│${reset}
+${cyan}│${reset}                                                                ${cyan}│${reset}
+${cyan}│${reset}    ${gray}Files:${reset}   ${brightCyan}${stats.filesIndexed}${reset}                                            ${cyan}│${reset}
+${cyan}│${reset}    ${gray}Symbols:${reset} ${brightCyan}${stats.symbolsExtracted}${reset}                                            ${cyan}│${reset}
+${cyan}│${reset}    ${gray}Updates:${reset} ${brightCyan}${stats.totalUpdates}${reset} ${dim}(${stats.totalFilesChanged} files changed)${reset}                  ${cyan}│${reset}
+${cyan}│${reset}                                                                ${cyan}│${reset}
+${cyan}├────────────────────────────────────────────────────────────────┤${reset}
+${cyan}│${reset}  ${bold}Activity${reset}                                                     ${cyan}│${reset}
+${cyan}│${reset}                                                                ${cyan}│${reset}`);
+
+    // Show activity log
+    if (activityLog.length === 0) {
+      console.log(`${cyan}│${reset}    ${dim}Waiting for file changes...${reset}                              ${cyan}│${reset}`);
+    } else {
+      for (const entry of activityLog) {
+        console.log(`${cyan}│${reset}    ${entry.padEnd(58)}${cyan}│${reset}`);
+      }
+    }
+
+    // Pad remaining lines
+    const remainingLines = MAX_LOG_ENTRIES - activityLog.length;
+    for (let i = 0; i < remainingLines && activityLog.length > 0; i++) {
+      console.log(`${cyan}│${reset}                                                                ${cyan}│${reset}`);
+    }
+
+    console.log(`${cyan}│${reset}                                                                ${cyan}│${reset}
+${cyan}└────────────────────────────────────────────────────────────────┘${reset}
+  ${dim}Press ${bold}Ctrl+C${reset}${dim} to stop${reset}
+`);
+  };
+
+  // Initial render
+  render('watching');
+
   // Directories to ignore
   const ignoreDirs = new Set([
     'node_modules',
@@ -138,14 +238,33 @@ async function startWatchMode(projectRoot: string, jsonOutput: boolean): Promise
     const changedFiles = Array.from(pendingChanges);
     pendingChanges.clear();
 
-    const timestamp = new Date().toLocaleTimeString();
+    const timestamp = new Date().toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
 
-    if (!jsonOutput) {
-      console.log(`[${timestamp}] Changes detected: ${changedFiles.length} file(s)`);
+    // Show updating status
+    render('updating');
+
+    if (jsonOutput) {
+      // JSON mode - just output JSON
+    } else {
+      addLogEntry(`${dim}${timestamp}${reset} ${yellow}↻${reset} ${changedFiles.length} file(s) changed`);
     }
 
     try {
       const result = await updateIndex(projectRoot);
+
+      stats.totalUpdates++;
+      stats.totalFilesChanged += changedFiles.length;
+      stats.lastUpdate = new Date();
+
+      if (result.filesIndexed > 0) {
+        stats.filesIndexed = result.filesIndexed;
+        stats.symbolsExtracted = result.symbolsExtracted;
+      }
 
       if (jsonOutput) {
         console.log(
@@ -160,17 +279,21 @@ async function startWatchMode(projectRoot: string, jsonOutput: boolean): Promise
         );
       } else {
         if (result.filesIndexed > 0) {
-          console.log(`  Updated: ${pluralize(result.filesIndexed, 'file')} in ${formatDuration(result.duration)}`);
+          addLogEntry(`${dim}${timestamp}${reset} ${check} Updated in ${formatDuration(result.duration)}`);
         } else {
-          console.log(`  No indexable changes`);
+          addLogEntry(`${dim}${timestamp}${reset} ${dim}No indexable changes${reset}`);
         }
+        render('watching');
       }
     } catch (e) {
       const error = e as Error;
       if (jsonOutput) {
         console.log(JSON.stringify({ event: 'error', error: error.message }));
       } else {
-        console.error(`  Error: ${error.message}`);
+        addLogEntry(`${dim}${timestamp}${reset} ${'\x1b[91m'}✗${reset} ${error.message.slice(0, 40)}`);
+        render('error', error.message);
+        // Go back to watching after showing error
+        setTimeout(() => render('watching'), 2000);
       }
     }
   };
@@ -191,13 +314,10 @@ async function startWatchMode(projectRoot: string, jsonOutput: boolean): Promise
 
   // Check if a file should be watched
   const shouldWatch = (filePath: string): boolean => {
-    // Check if it's in an ignored directory
     const parts = filePath.split('/');
     for (const part of parts) {
       if (ignoreDirs.has(part)) return false;
     }
-
-    // Check if it's a supported language
     const lang = getLanguageFromExtension(filePath);
     return lang !== null;
   };
@@ -208,12 +328,8 @@ async function startWatchMode(projectRoot: string, jsonOutput: boolean): Promise
     { recursive: true },
     (_eventType, filename) => {
       if (!filename) return;
-
       const relativePath = filename.toString();
-
-      // Skip if not a file we care about
       if (!shouldWatch(relativePath)) return;
-
       handleChange(relativePath);
     }
   );
@@ -221,7 +337,22 @@ async function startWatchMode(projectRoot: string, jsonOutput: boolean): Promise
   // Handle graceful shutdown
   const cleanup = () => {
     if (!jsonOutput) {
-      console.log('\nStopping watch mode...');
+      process.stdout.write('\x1b[2J\x1b[H');
+      const uptime = formatUptime(stats.startTime);
+      console.log(`
+${cyan}┌────────────────────────────────────────────────────────────────┐${reset}
+${cyan}│${reset}  ${brightMagenta}${bold}codemap${reset} ${dim}watch mode stopped${reset}                                  ${cyan}│${reset}
+${cyan}├────────────────────────────────────────────────────────────────┤${reset}
+${cyan}│${reset}                                                                ${cyan}│${reset}
+${cyan}│${reset}  ${bold}Session Summary${reset}                                              ${cyan}│${reset}
+${cyan}│${reset}                                                                ${cyan}│${reset}
+${cyan}│${reset}    ${gray}Uptime:${reset}        ${brightCyan}${uptime}${reset}                                      ${cyan}│${reset}
+${cyan}│${reset}    ${gray}Total updates:${reset} ${brightCyan}${stats.totalUpdates}${reset}                                           ${cyan}│${reset}
+${cyan}│${reset}    ${gray}Files changed:${reset} ${brightCyan}${stats.totalFilesChanged}${reset}                                           ${cyan}│${reset}
+${cyan}│${reset}    ${gray}Final index:${reset}   ${brightCyan}${stats.filesIndexed}${reset} files, ${brightCyan}${stats.symbolsExtracted}${reset} symbols            ${cyan}│${reset}
+${cyan}│${reset}                                                                ${cyan}│${reset}
+${cyan}└────────────────────────────────────────────────────────────────┘${reset}
+`);
     }
     watcher.close();
     if (debounceTimer) {
@@ -235,4 +366,27 @@ async function startWatchMode(projectRoot: string, jsonOutput: boolean): Promise
 
   // Keep the process running
   await new Promise(() => {});
+}
+
+/**
+ * Format uptime as human readable string
+ */
+function formatUptime(startTime: Date): string {
+  const seconds = Math.floor((Date.now() - startTime.getTime()) / 1000);
+
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  if (minutes < 60) {
+    return `${minutes}m ${remainingSeconds}s`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  return `${hours}h ${remainingMinutes}m`;
 }
