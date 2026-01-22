@@ -57,14 +57,10 @@ ${cyan}└───────────────────────�
       const skillDir = join(targetDir, 'skills', 'codemap');
       const skillTarget = join(skillDir, 'SKILL.md');
 
-      // Install skill
-      if (existsSync(skillTarget) && !options.force) {
-        console.log(`${check} Skill already installed`);
-      } else {
-        mkdirSync(skillDir, { recursive: true });
-        copyFileSync(skillSource, skillTarget);
-        console.log(`${check} Installed ${dim}${options.global ? '~/.claude' : '.claude'}/skills/codemap/SKILL.md${reset}`);
-      }
+      // Install/update skill (always overwrite with latest)
+      mkdirSync(skillDir, { recursive: true });
+      copyFileSync(skillSource, skillTarget);
+      console.log(`${check} Installed ${dim}${options.global ? '~/.claude' : '.claude'}/skills/codemap/SKILL.md${reset}`);
 
       // Always add global detection rule to ~/.claude/CLAUDE.md
       const globalClaudeMd = join(homedir(), '.claude', 'CLAUDE.md');
@@ -89,8 +85,16 @@ This applies to ALL agents and subagents. NEVER use Grep/Search in codemap-enabl
       try {
         mkdirSync(join(homedir(), '.claude'), { recursive: true });
         if (existsSync(globalClaudeMd)) {
-          const content = readFileSync(globalClaudeMd, 'utf-8');
-          if (!content.includes('<!-- CODEMAP-GLOBAL:START -->')) {
+          let content = readFileSync(globalClaudeMd, 'utf-8');
+          if (content.includes('<!-- CODEMAP-GLOBAL:START -->')) {
+            // Replace existing content with latest
+            content = content.replace(
+              /\n?<!-- CODEMAP-GLOBAL:START -->[\s\S]*?<!-- CODEMAP-GLOBAL:END -->\n?/,
+              '\n' + globalSnippet
+            );
+            writeFileSync(globalClaudeMd, content);
+            console.log(`${check} Updated global detection rule in ${dim}~/.claude/CLAUDE.md${reset}`);
+          } else {
             writeFileSync(globalClaudeMd, content + '\n' + globalSnippet);
             console.log(`${check} Added global detection rule to ${dim}~/.claude/CLAUDE.md${reset}`);
           }
@@ -131,21 +135,18 @@ Run \`npx @claudetools/codemap index\` to rebuild after major changes.
 `;
 
         if (existsSync(claudeMdPath)) {
-          const content = readFileSync(claudeMdPath, 'utf-8');
+          let content = readFileSync(claudeMdPath, 'utf-8');
           if (content.includes('<!-- CODEMAP:START -->')) {
-            if (options.force) {
-              const updated = content.replace(
-                /<!-- CODEMAP:START -->[\s\S]*?<!-- CODEMAP:END -->/,
-                codemapSnippet.trim()
-              );
-              writeFileSync(claudeMdPath, updated);
-              console.log(`${check} Updated ${dim}.claude/CLAUDE.md${reset}`);
-            } else {
-              console.log(`${check} CLAUDE.md already configured`);
-            }
+            // Always replace with latest content
+            content = content.replace(
+              /\n?<!-- CODEMAP:START -->[\s\S]*?<!-- CODEMAP:END -->\n?/,
+              '\n' + codemapSnippet
+            );
+            writeFileSync(claudeMdPath, content);
+            console.log(`${check} Updated ${dim}.claude/CLAUDE.md${reset}`);
           } else {
             writeFileSync(claudeMdPath, content + '\n' + codemapSnippet);
-            console.log(`${check} Updated ${dim}.claude/CLAUDE.md${reset}`);
+            console.log(`${check} Added codemap to ${dim}.claude/CLAUDE.md${reset}`);
           }
         } else {
           mkdirSync(targetDir, { recursive: true });
